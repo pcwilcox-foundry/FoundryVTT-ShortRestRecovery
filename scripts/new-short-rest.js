@@ -1,7 +1,7 @@
 
 export default class newShortRestDialog extends Dialog {
-	
-	constructor(actor, dialogData={}, options={}) {
+
+	constructor(actor, dialogData = {}, options = {}) {
 		super(dialogData, options);
 
 		/**
@@ -51,13 +51,13 @@ export default class newShortRestDialog extends Dialog {
 
 		return this._data;
 	}
-	
-	get_hitdice(){
+
+	get_hitdice() {
 
 		let hd = {}
 		// Determine Hit Dice
 		hd.availableHD = this.actor.data.items.reduce((hd, item) => {
-			if ( item.type === "class" ) {
+			if (item.type === "class") {
 				const d = item.data.data;
 				const denom = d.hitDice || "d6";
 				const available = parseInt(d.levels || 1) - parseInt(d.hitDiceUsed || 0);
@@ -72,7 +72,7 @@ export default class newShortRestDialog extends Dialog {
 
 	}
 
-	get_class_resource(){
+	get_class_resource() {
 
 		let class_data = {
 			has_feature: false,
@@ -89,33 +89,32 @@ export default class newShortRestDialog extends Dialog {
 
 		let item = actor_has_item(this.actor, game.i18n.format("DND5E.WizardRecovery"), true) ?? actor_has_item(this.actor, game.i18n.format("DND5E.DruidRecovery"), true);
 
-		if(wizard_druid_class_item && wizard_druid_class_item.data.data.levels > 1 && item){
-
+		if (wizard_druid_class_item && wizard_druid_class_item.data.data.levels > 1 && item) {
 			let missing_spells = Object.entries(this.actor.data.data.spells).filter(slot => slot[0] !== "pact" && Number(slot[0].substr(5)) < 6 && slot[1].value !== slot[1].max);
 
-			if(missing_spells.length !== 0){
+			if (missing_spells.length !== 0) {
 
 				class_data.class = wizard_druid_class_item.name;
 
 				// Recover spell slots
 				for (let [k, v] of Object.entries(this.actor.data.data.spells)) {
-						if((!v.max && !v.override) || k === "pact"){
-							continue;
-						}
-						let level = k.substr(5)
-						if(Number(level) > 5){
-							break;
-						}
-						class_data.slots[level] = [];
-						for(let i = 0; i < v.max; i++){
-							class_data.slots[level].push(i >= v.value)
-						}
+					if ((!v.max && !v.override) || k === "pact") {
+						continue;
+					}
+					let level = k.substr(5)
+					if (Number(level) > 5) {
+						break;
+					}
+					class_data.slots[level] = [];
+					for (let i = 0; i < v.max; i++) {
+						class_data.slots[level].push(i >= v.value)
+					}
 				}
 
 				class_data.has_feature = true;
-				class_data.has_uses =  item.data.data.uses.value !== 0;
-				class_data.sp_total = Math.ceil(wizard_druid_class_item.data.data.levels/2);
-				class_data.sp_left = Math.ceil(wizard_druid_class_item.data.data.levels/2);
+				class_data.has_uses = item.data.data.uses.value !== 0;
+				class_data.sp_total = Math.ceil(wizard_druid_class_item.data.data.levels / 2);
+				class_data.sp_left = Math.ceil(wizard_druid_class_item.data.data.levels / 2);
 
 			}
 
@@ -127,26 +126,26 @@ export default class newShortRestDialog extends Dialog {
 
 		let skipInactivePlayers = game.settings.get("short-rest-recovery", "skipActivePlayers");
 
-		for(let actor of characters){
+		for (let actor of characters) {
 
-			if(skipInactivePlayers) {
+			if (skipInactivePlayers) {
 				let found = game.users.find(user => {
 					return user.character === actor && user.active;
 				})
-				if(!found) continue;
+				if (!found) continue;
 			}
 
 			// Only consider the actor if it has more than 0 hp, as features cannot be used if they are unconscious
-			if(actor.data.data.attributes.hp.value <= 0) continue;
+			if (actor.data.data.attributes.hp.value <= 0) continue;
 
-			if(actor_has_item(actor, game.i18n.format("DND5E.SongOfRest"), true)){
+			if (actor_has_item(actor, game.i18n.format("DND5E.SongOfRest"), true)) {
 				let level = actor.items.find(i => i.type === "class" && i.name.toLowerCase() === "bard").data.data.levels;
 				bard_level = bard_level ? (level > bard_level ? level : bard_level) : level;
 				bard = bard ? (level > bard_level ? actor : bard) : actor;
 			}
 
-			if(actor_has_item(actor, game.i18n.format("DND5E.ChefFeat"), false) && actor_has_item(actor, game.i18n.format("DND5E.ChefTools"), false)){
-				if(!class_data.chef){
+			if (actor_has_item(actor, game.i18n.format("DND5E.ChefFeat"), false) && actor_has_item(actor, game.i18n.format("DND5E.ChefTools"), false)) {
+				if (!class_data.chef) {
 					class_data.chef = [];
 				}
 				class_data.chef.push(actor);
@@ -154,7 +153,7 @@ export default class newShortRestDialog extends Dialog {
 
 		}
 
-		if(bard && bard_level >= 2) {
+		if (bard && bard_level >= 2) {
 			class_data.bard = {
 				"actor": bard,
 				"song_of_rest": bard_level >= 17 ? "1d12" : bard_level >= 13 ? "1d10" : bard_level >= 9 ? "1d8" : bard_level >= 2 ? "1d6" : false
@@ -174,7 +173,7 @@ export default class newShortRestDialog extends Dialog {
 
 		let btn = html.find("#roll-hd");
 		btn.click(this._onRollHitDie.bind(this));
-		
+
 		let chk = html.find(".spend-spell-point");
 		chk.click(this._onSpendSpellPoint.bind(this));
 	}
@@ -193,46 +192,46 @@ export default class newShortRestDialog extends Dialog {
 
 		let hitDieResult = await this.actor.rollHitDie(this._denom);
 
-		if(!hitDieResult) return;
+		if (!hitDieResult) return;
 
-		if(this._data.class_data.bard && !this.used_song_of_rest){
+		if (this._data.class_data.bard && !this.used_song_of_rest) {
 
-			let roll = await new Roll(this._data.class_data.bard.song_of_rest).roll({async: true});
-			
+			let roll = await new Roll(this._data.class_data.bard.song_of_rest).roll({ async: true });
+
 			const hp = this.actor.data.data.attributes.hp;
 			const dhp = Math.min(hp.max + (hp.tempmax ?? 0) - hp.value, roll.total);
-			await this.actor.update({"data.attributes.hp.value": hp.value + dhp});
+			await this.actor.update({ "data.attributes.hp.value": hp.value + dhp });
 
 			roll.toMessage({
 				flavor: game.i18n.format("DND5E.ShortRestSongOfRest", { name: this.actor.name, bard: this._data.class_data.bard.actor.name }),
-				speaker: ChatMessage.getSpeaker({token: this.actor})
+				speaker: ChatMessage.getSpeaker({ token: this.actor })
 			})
 
 			this.used_song_of_rest = true;
 
 		}
 
-		if(this._data.class_data.chef.length > 0 && !this.used_chef){
+		if (this._data.class_data.chef.length > 0 && !this.used_chef) {
 
 			let chef = this._data.class_data.chef[Math.floor(Math.random() * this._data.class_data.chef.length)];
 
-			let roll = await new Roll('1d8').roll({async: true});
-			
+			let roll = await new Roll('1d8').roll({ async: true });
+
 			const hp = this.actor.data.data.attributes.hp;
 			const dhp = Math.min(hp.max + (hp.tempmax ?? 0) - hp.value, roll.total);
-			await this.actor.update({"data.attributes.hp.value": hp.value + dhp});
+			await this.actor.update({ "data.attributes.hp.value": hp.value + dhp });
 
 			let flavor = chef !== this.actor ? game.i18n.format("DND5E.ShortRestChef", { name: this.actor.name, chef: chef.name }) : game.i18n.format("DND5E.ShortRestChefSelf", { name: this.actor.name });
 
 			roll.toMessage({
 				flavor: flavor,
-				speaker: ChatMessage.getSpeaker({token: this.actor})
+				speaker: ChatMessage.getSpeaker({ token: this.actor })
 			})
 
 			this.used_chef = true;
 
 		}
-		
+
 		this.update_hd();
 	}
 
@@ -242,9 +241,9 @@ export default class newShortRestDialog extends Dialog {
 	 * Updates the hit dice section of the UI
 	 * @private
 	 */
-	update_hd(){
+	update_hd() {
 		this._data.hd = this.get_hitdice();
-		for(let hd in this._data.hd.availableHD){
+		for (let hd in this._data.hd.availableHD) {
 			this._element.find(`option[value=${hd}]`).text(`${hd} (${this._data.hd.availableHD[hd]} ${game.i18n.localize("DND5E.available")})`);
 		}
 		this._data.hd.canRoll = this.actor.data.data.attributes.hd > 0;
@@ -270,7 +269,7 @@ export default class newShortRestDialog extends Dialog {
 	 * Updates the spell point section of the UI
 	 * @private
 	 */
-	update_spellpoints(){
+	update_spellpoints() {
 
 		let sp_left = this._data.class_data.sp_left;
 
@@ -310,26 +309,26 @@ export default class newShortRestDialog extends Dialog {
 
 		}*/
 
-		for(let i = 0; i < checkboxes.length; i++){
+		for (let i = 0; i < checkboxes.length; i++) {
 
 			let checkbox = checkboxes[i];
 
 			let level = Number(checkbox.value);
 
-			if(checkbox.checked){
+			if (checkbox.checked) {
 				sp_left -= level;
 			}
 		}
 
-		for(let i = 0; i < checkboxes.length; i++){
+		for (let i = 0; i < checkboxes.length; i++) {
 
 			let checkbox = checkboxes[i];
 
 			let level = Number(checkbox.value);
 
-			if(sp_left - level < 0 && !checkbox.checked){
+			if (sp_left - level < 0 && !checkbox.checked) {
 				checkbox.setAttribute("disabled", "");
-			}else{
+			} else {
 				checkbox.removeAttribute("disabled");
 			}
 		}
@@ -346,7 +345,7 @@ export default class newShortRestDialog extends Dialog {
 	 * @param {Actor5e} actor
 	 * @return {Promise}
 	 */
-	static async displayDialog({actor}={}) {
+	static async displayDialog({ actor } = {}) {
 		return new Promise((resolve, reject) => {
 			const dlg = new this(actor, {
 				title: "Short Rest",
@@ -360,24 +359,24 @@ export default class newShortRestDialog extends Dialog {
 
 							let levels_regained = false
 
-							if(checkboxes.length > 0){
+							if (checkboxes.length > 0) {
 
 								levels_regained = {};
 
-								for(let i = 0; i < checkboxes.length; i++){
+								for (let i = 0; i < checkboxes.length; i++) {
 
 									let checkbox = checkboxes[i];
 
-									if(checkbox.checked){
+									if (checkbox.checked) {
 										let level = Number(checkbox.value);
-										if(levels_regained[level] === undefined){
+										if (levels_regained[level] === undefined) {
 											levels_regained[level] = 0;
 										}
 										levels_regained[level]++;
 									}
 								}
 
-								if(Object.keys(levels_regained).length === 0){
+								if (Object.keys(levels_regained).length === 0) {
 									levels_regained = false;
 								}
 
@@ -390,7 +389,7 @@ export default class newShortRestDialog extends Dialog {
 
 							resolve({
 								newDay: newDay,
-								levels_regained: levels_regained
+								levels_regained: levels_regained,
 							});
 						}
 					},
@@ -408,7 +407,7 @@ export default class newShortRestDialog extends Dialog {
 
 }
 
-function actor_has_item(inActor, inItemName, inFuzzySearch){
+function actor_has_item(inActor, inItemName, inFuzzySearch) {
 	return inActor.items.find(i => {
 		return inFuzzySearch ? i.name.toLowerCase().indexOf(inItemName.toLowerCase()) > -1 : i.name.toLowerCase() === inItemName.toLowerCase();
 	});

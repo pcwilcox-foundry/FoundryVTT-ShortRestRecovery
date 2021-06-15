@@ -18,13 +18,13 @@ function ordinal_suffix_of(i) {
     var j, k;
     j = i % 10;
     k = i % 100;
-    if(j === 1 && k !== 11) {
+    if (j === 1 && k !== 11) {
         return i + 'st';
     }
-    if(j === 2 && k !== 12) {
+    if (j === 2 && k !== 12) {
         return i + 'nd';
     }
-    if(j === 3 && k !== 13) {
+    if (j === 3 && k !== 13) {
         return i + 'rd';
     }
     return i + 'th';
@@ -57,7 +57,7 @@ function patch_RollHitDie() {
 
             // If no class is available, display an error notification
             if (!cls) {
-                ui.notifications.error(game.i18n.format("DND5E.HitDiceWarn", {name: this.name, formula: denomination}));
+                ui.notifications.error(game.i18n.format("DND5E.HitDiceWarn", { name: this.name, formula: denomination }));
                 return null;
             }
 
@@ -101,19 +101,19 @@ function patch_RollHitDie() {
                 title: title,
                 allowCritical: false,
                 fastForward: !dialog,
-                dialogOptions: {width: 350},
+                dialogOptions: { width: 350 },
                 messageData: {
-                    speaker: ChatMessage.getSpeaker({actor: this}),
-                    "flags.dnd5e.roll": {type: "hitDie"}
+                    speaker: ChatMessage.getSpeaker({ actor: this }),
+                    "flags.dnd5e.roll": { type: "hitDie" }
                 }
             });
             if (!roll) return null;
 
             // Adjust actor data
-            await cls.update({"data.hitDiceUsed": cls.data.data.hitDiceUsed + 1});
+            await cls.update({ "data.hitDiceUsed": cls.data.data.hitDiceUsed + 1 });
             const hp = this.data.data.attributes.hp;
             const dhp = Math.min(hp.max + (hp.tempmax ?? 0) - hp.value, roll.total);
-            await this.update({"data.attributes.hp.value": hp.value + dhp});
+            await this.update({ "data.attributes.hp.value": hp.value + dhp });
             return roll;
         },
         "OVERRIDE"
@@ -121,7 +121,7 @@ function patch_RollHitDie() {
 
 }
 
-function patch_shortRest(){
+function patch_shortRest() {
 
     // This must be overwritten due to it calling newShortRestDialog.displayDialog
     libWrapper.register(
@@ -129,11 +129,14 @@ function patch_shortRest(){
         "CONFIG.Actor.documentClass.prototype.shortRest",
         async function patchedShortRest(...args) {
 
-            let [dialog=true, chat=true, autoHD=false, autoHDThreshold=3] = args ?? [];
+            let [dialog = true, chat = true, autoHD = false, autoHDThreshold = 3] = args ?? [];
 
             // Take note of the initial hit points and number of hit dice the Actor has
             const hp = this.data.data.attributes.hp;
             const hd0 = this.data.data.attributes.hd;
+            const spell_points_resource = SpellPoints.getSpellPointsResource(this.actor);
+            const maxSpellPoints = actor.data.data.resources[spellPointResource.key].max;
+            const actualSpellPoints = actor.data.data.resources[spellPointResource.key].value;
             const hp0 = hp.value;
             let rest_data = {
                 newDay: false,
@@ -142,17 +145,17 @@ function patch_shortRest(){
 
             let recovery_item = this.items.find(i => {
                 return i.name.toLowerCase().indexOf(game.i18n.format("DND5E.WizardRecovery").toLowerCase()) > -1 ||
-                       i.name.toLowerCase().indexOf(game.i18n.format("DND5E.DruidRecovery").toLowerCase()) > -1
+                    i.name.toLowerCase().indexOf(game.i18n.format("DND5E.DruidRecovery").toLowerCase()) > -1
             });
 
-            if(recovery_item &&
+            if (recovery_item &&
                 (
                     recovery_item.data.data.activation.type !== "special" ||
                     recovery_item.data.data.uses.value === null ||
                     recovery_item.data.data.uses.max === null ||
                     recovery_item.data.data.uses.per !== "lr"
                 )
-            ){
+            ) {
                 await this.updateEmbeddedDocuments("Item", [{
                     _id: recovery_item.id,
                     "data.activation.type": "special",
@@ -167,47 +170,53 @@ function patch_shortRest(){
             }
 
             // Display a Dialog for rolling hit dice
-            if ( dialog ) {
+            if (dialog) {
                 try {
-                    rest_data = await newShortRestDialog.displayDialog({actor: this, canRoll: hd0 > 0});
-                } catch(err) {
+                    rest_data = await newShortRestDialog.displayDialog({ actor: this, canRoll: hd0 > 0 });
+                } catch (err) {
                     return;
                 }
             }
 
             // Automatically spend hit dice
-            else if ( autoHD ) {
-                while ( (hp.value + autoHDThreshold) <= hp.max ) {
-                    const r = await this.rollHitDie(undefined, {dialog: false});
-                    if ( r === null ) break;
+            else if (autoHD) {
+                while ((hp.value + autoHDThreshold) <= hp.max) {
+                    const r = await this.rollHitDie(undefined, { dialog: false });
+                    if (r === null) break;
                 }
             }
 
             let updateData = {};
             let updateItems = [];
 
-            if(rest_data.levels_regained){
+            if (rest_data.levels_regained) {
 
                 let level = 0;
                 for (let [k, v] of Object.entries(this.data.data.spells)) {
 
-                    if(!v.max && !v.override){
+                    if (!v.max && !v.override) {
                         continue;
                     }
                     level++;
 
-                    if(rest_data.levels_regained[level]){
+                    if (rest_data.levels_regained[level]) {
 
                         updateData[`data.spells.${k}.value`] = v.value + rest_data.levels_regained[level];
 
                     }
                 }
 
-                if(recovery_item) {
+                let spell_point_gain;
+                if (actualSpellPoints < maxSpellPoints) {
+                    spell_point_gain = Math.max(1, Math.floor(maxSpellPoints / 4));
+                    updateData[`data.resources[spellPointResource.key].value`] = Math.min(actualSpellPoints + spell_point_gain, maxSpellPoints);
+                }
+                if (recovery_item) {
                     updateItems.push({
                         _id: recovery_item.id,
                         "data.uses.value": 0
                     })
+                    updateData[`data.resources[spellPointResource.key].value`] = Math.min(actualSpellPoints + spell_point_gain + actor.data.attributes.prof, maxSpellPoints);
                 }
             }
 
@@ -226,7 +235,7 @@ function patch_shortRest(){
     );
 }
 
-function patch_rest(){
+function patch_rest() {
 
     // This too cannot be wrapped, as it calls `_displayRestResultMessage` inside of it, whose parameters we need to modify
     libWrapper.register(
@@ -234,7 +243,7 @@ function patch_rest(){
         "CONFIG.Actor.documentClass.prototype._rest",
         async function patched_rest(...args) {
 
-            const [chat, newDay, longRest, dhd=0, dhp=0, updateData={}, updateItems=[]] = args ?? [];
+            const [chat, newDay, longRest, dhd = 0, dhp = 0, updateData = {}, updateItems = []] = args ?? [];
 
             let hitPointsRecovered = 0;
             let hitPointUpdates = {};
@@ -242,7 +251,7 @@ function patch_rest(){
             let hitDiceUpdates = [];
 
             // Recover hit points & hit dice on long rest
-            if ( longRest ) {
+            if (longRest) {
                 ({ updates: hitPointUpdates, hitPointsRecovered } = this._getRestHitPointRecovery());
                 ({ updates: hitDiceUpdates, hitDiceRecovered } = this._getRestHitDiceRecovery());
             }
@@ -271,7 +280,7 @@ function patch_rest(){
             await this.updateEmbeddedDocuments("Item", result.updateItems);
 
             // Display a Chat Message summarizing the rest effects
-            if ( chat ) await this._displayRestResultMessage(result, longRest);
+            if (chat) await this._displayRestResultMessage(result, longRest);
 
             // Return data summarizing the rest effects
             return result;
@@ -282,11 +291,11 @@ function patch_rest(){
 
 }
 
-function patch_displayRestResultsMessage(){
+function patch_displayRestResultsMessage() {
     libWrapper.register(
         "short-rest-recovery",
         "CONFIG.Actor.documentClass.prototype._displayRestResultMessage",
-        async function patched_displayRestResultsMessage(wrapper, ...args){
+        async function patched_displayRestResultsMessage(wrapper, ...args) {
 
             let chatMessage = await wrapper(...args);
 
@@ -295,13 +304,13 @@ function patch_displayRestResultsMessage(){
 
             let content = chatMessage.data.content;
 
-            if(spells && !longRest){
+            if (spells && !longRest) {
                 spells = Object.entries(spells).filter(spell => {
                     return spell[0] !== "pact";
                 });
-                if(spells.length) {
+                if (spells.length) {
                     let spellSlotsString = "<ul>";
-                    for (let [type, numbers] of spells){
+                    for (let [type, numbers] of spells) {
                         if (type === "pact") continue;
                         let level = Number(type.replace('spell', ''));
                         spellSlotsString += `<li>${game.i18n.format('DND5E.SpellLevelSlotCount', {
@@ -311,9 +320,9 @@ function patch_displayRestResultsMessage(){
                     }
                     spellSlotsString += "</ul>";
 
-                    content += game.i18n.format("DND5E.ShortRestSpellResult", {spellslots: spellSlotsString});
+                    content += game.i18n.format("DND5E.ShortRestSpellResult", { spellslots: spellSlotsString });
 
-                    await chatMessage.update({content: content});
+                    await chatMessage.update({ content: content });
                 }
             }
 
