@@ -134,7 +134,14 @@ function patch_shortRest() {
             // Take note of the initial hit points and number of hit dice the Actor has
             const hp = this.data.data.attributes.hp;
             const hd0 = this.data.data.attributes.hd;
-            const spell_points_resource = SpellPoints.getSpellPointsResource(this.actor);
+            let _resources = getProperty(actor, "data.data.resources");
+            let spell_point_resource;
+            for (let r in _resources) {
+                if (_resources[r].label == "Spell Points") {
+                    spell_point_resource = { 'values': _resources[r], 'key': r };
+                    break;
+                }
+            }
             const maxSpellPoints = actor.data.data.resources[spellPointResource.key].max;
             const actualSpellPoints = actor.data.data.resources[spellPointResource.key].value;
             const hp0 = hp.value;
